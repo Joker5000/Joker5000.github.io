@@ -1,5 +1,6 @@
 {
   "challenge": "A81F29",
   "salt": "KX72",
-  "version": 1023
+  "a": 12,
+  "b": 44
 }

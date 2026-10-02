@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS incidents (
     status TEXT NOT NULL DEFAULT 'open',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS message_log (
+    id BIGSERIAL PRIMARY KEY,
+    chat_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    username TEXT,
+    display_name TEXT,
+    text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(chat_id, message_id)
+);
+CREATE INDEX IF NOT EXISTS idx_message_log_user ON message_log(chat_id,user_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -160,3 +172,33 @@ async def set_incident_status(incident_id:int,status:str):
 async def user_warning_count(chat_id:int,user_id:int)->int:
     async with pool.acquire() as con:
         return int(await con.fetchval("SELECT count(*) FROM warnings WHERE chat_id=$1 AND user_id=$2",chat_id,user_id) or 0)
+
+
+async def log_user_message(chat_id:int,user_id:int,message_id:int,username:str|None,display_name:str,text:str):
+    async with pool.acquire() as con:
+        await con.execute(
+            """INSERT INTO message_log(chat_id,user_id,message_id,username,display_name,text)
+               VALUES($1,$2,$3,$4,$5,$6)
+               ON CONFLICT(chat_id,message_id) DO NOTHING""",
+            chat_id,user_id,message_id,username,display_name,text[:8000]
+        )
+
+async def user_messages(chat_id:int,user_id:int,limit:int=80):
+    async with pool.acquire() as con:
+        return await con.fetch(
+            """SELECT message_id,username,display_name,text,created_at
+               FROM message_log WHERE chat_id=$1 AND user_id=$2
+               ORDER BY created_at DESC LIMIT $3""",chat_id,user_id,limit
+        )
+
+async def get_incident(incident_id:int):
+    async with pool.acquire() as con:
+        return await con.fetchrow("SELECT * FROM incidents WHERE id=$1",incident_id)
+
+async def resolve_incident(incident_id:int,status:str)->bool:
+    async with pool.acquire() as con:
+        row=await con.fetchrow(
+            "UPDATE incidents SET status=$2 WHERE id=$1 AND status='open' RETURNING id",
+            incident_id,status
+        )
+        return bool(row)

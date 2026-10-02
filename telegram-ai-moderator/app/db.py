@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS message_log (
     UNIQUE(chat_id, message_id)
 );
 CREATE INDEX IF NOT EXISTS idx_message_log_user ON message_log(chat_id,user_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS user_profiles (
+    chat_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    username TEXT,
+    display_name TEXT,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    joined_at TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    message_count BIGINT NOT NULL DEFAULT 0,
+    photo_file_id TEXT,
+    PRIMARY KEY(chat_id,user_id)
+);
 CREATE TABLE IF NOT EXISTS moderation_commands (
     id BIGSERIAL PRIMARY KEY,
     incident_id BIGINT NOT NULL UNIQUE,
@@ -234,3 +246,33 @@ async def finish_command(command_id:int,incident_id:int,final_status:str,error:s
         async with con.transaction():
             await con.execute("UPDATE moderation_commands SET status=$2,error=$3,executed_at=now() WHERE id=$1",command_id,"done" if error is None else "failed",error)
             await con.execute("UPDATE incidents SET status=$2 WHERE id=$1",incident_id,final_status if error is None else "open")
+
+
+async def touch_user(chat_id:int,user_id:int,username:str|None,display_name:str,photo_file_id:str|None=None):
+    async with pool.acquire() as con:
+        await con.execute("""INSERT INTO user_profiles(chat_id,user_id,username,display_name,message_count,photo_file_id)
+        VALUES($1,$2,$3,$4,1,$5)
+        ON CONFLICT(chat_id,user_id) DO UPDATE SET username=EXCLUDED.username,display_name=EXCLUDED.display_name,
+        last_seen_at=now(),message_count=user_profiles.message_count+1,
+        photo_file_id=COALESCE(EXCLUDED.photo_file_id,user_profiles.photo_file_id)""",
+        chat_id,user_id,username,display_name,photo_file_id)
+
+async def mark_joined(chat_id:int,user_id:int,username:str|None,display_name:str):
+    async with pool.acquire() as con:
+        await con.execute("""INSERT INTO user_profiles(chat_id,user_id,username,display_name,joined_at)
+        VALUES($1,$2,$3,$4,now()) ON CONFLICT(chat_id,user_id) DO UPDATE SET
+        username=EXCLUDED.username,display_name=EXCLUDED.display_name,
+        joined_at=COALESCE(user_profiles.joined_at,now()),last_seen_at=now()""",
+        chat_id,user_id,username,display_name)
+
+async def get_user_profile(chat_id:int,user_id:int):
+    async with pool.acquire() as con:
+        return await con.fetchrow("SELECT * FROM user_profiles WHERE chat_id=$1 AND user_id=$2",chat_id,user_id)
+
+async def warning_count(chat_id:int,user_id:int):
+    async with pool.acquire() as con:
+        return int(await con.fetchval("SELECT count(*) FROM warnings WHERE chat_id=$1 AND user_id=$2",chat_id,user_id) or 0)
+
+async def incident_count(chat_id:int,user_id:int):
+    async with pool.acquire() as con:
+        return int(await con.fetchval("SELECT count(*) FROM incidents WHERE chat_id=$1 AND user_id=$2",chat_id,user_id) or 0)

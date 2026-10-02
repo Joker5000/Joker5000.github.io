@@ -6,6 +6,7 @@ from aiogram.types import Message, CallbackQuery, ChatPermissions
 from .config import settings
 from . import db
 from .keyboards import admin_menu, punishment_menu
+from .web import hash_password
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -57,6 +58,21 @@ async def admin_callbacks(q: CallbackQuery):
     }
     await q.message.edit_text(texts[section], reply_markup=admin_menu(), parse_mode="HTML")
     await q.answer()
+
+@dp.message(Command("webpass"))
+async def webpass(m: Message):
+    if not await require_admin(m): return
+    if m.chat.type != "private":
+        return await m.answer("🔒 Эту команду используйте только в личных сообщениях с ботом.")
+    parts=m.text.split(maxsplit=1)
+    if len(parts)!=2 or len(parts[1])<10:
+        return await m.answer("Использование: <code>/webpass НАДЁЖНЫЙ_ПАРОЛЬ</code>\nМинимум 10 символов.",parse_mode="HTML")
+    await db.set_web_password(m.from_user.id,hash_password(parts[1]))
+    try:
+        await m.delete()
+    except Exception:
+        pass
+    await m.answer("✅ Пароль веб-панели установлен. Сообщение с паролем удалено.")
 
 @dp.message(Command("admins"))
 async def admins(m: Message):

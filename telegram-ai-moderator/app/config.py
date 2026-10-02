@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     web_session_secret: str = "change-me"
     web_port: int = 8080
     web_public_url: str = ""
+    game_bridge_token: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

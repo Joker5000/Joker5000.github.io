@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-5-mini"
     ai_enabled: bool = False
+    web_session_secret: str = "change-me"
+    web_port: int = 8080
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -45,7 +45,7 @@ def layout(title:str,body:str,user_id:int|None=None)->str:
     if user_id is None:return f"<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>{title}</title>{STYLE}<body>{body}</body></html>"
     nav="""<div class='side'><div class='logo'>🛡 <span>AI</span> Moderator</div><div class='nav'>
     <a href='/'>📊 Обзор</a><a href='/rules'>📋 Правила</a><a href='/admins'>👮 Администраторы</a>
-    <a href='/incidents'>🚨 Инциденты</a><a href='/character'>✨ Character Studio</a><a href='/settings'>⚙️ Настройки</a><a href='/logout'>🚪 Выйти</a></div></div>"""
+    <a href='/incidents'>🚨 Инциденты</a><a href='/inspector'>🎮 Режим инспектора</a><a href='/character'>✨ Character Studio</a><a href='/settings'>⚙️ Настройки</a><a href='/logout'>🚪 Выйти</a></div></div>"""
     return f"<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>{title}</title>{STYLE}<body><div class='shell'>{nav}<main class='main'>{body}</main></div></body></html>"
 
 async def current_admin(request:Request):
@@ -227,3 +227,72 @@ async def save_character(request:Request,name:str=Form(...),bio:str=Form(...),pr
     await db.set_setting("character_emoji",emoji[:200])
     await db.set_setting("persona_prompt",persona[:2000])
     return RedirectResponse("/character",303)
+
+
+INSPECTOR_STYLE="""
+<style>
+.inspector{background:#17140f;border:5px solid #3c3527;box-shadow:0 20px 70px #0008;padding:18px;font-family:'Courier New',monospace;position:relative;overflow:hidden}
+.inspector:before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.14;background:repeating-linear-gradient(0deg,#fff0 0,#fff0 3px,#000 4px)}
+.desk{display:grid;grid-template-columns:1.25fr .9fr;gap:18px}.paper{background:#d9d0a2;color:#29271f;padding:22px;min-height:510px;box-shadow:5px 7px 0 #09080655;transform:rotate(-.4deg)}
+.passport{background:#d8c5b4;color:#251d1b;padding:18px;border:4px solid #4b3731;box-shadow:4px 6px 0 #0006}
+.casehead{display:flex;justify-content:space-between;border-bottom:3px double #4c4939;padding-bottom:10px;margin-bottom:14px}
+.messages{max-height:370px;overflow:auto;border-top:2px solid #6b664e}.msg{padding:10px 4px;border-bottom:1px dashed #777057}.msg time{font-size:11px;opacity:.65}.stampbar{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.stamp{font-family:'Courier New',monospace;font-weight:900;font-size:18px;padding:18px 10px;border:4px solid;transform:rotate(-1deg);background:#0000}.approve{color:#3d6e2c;border-color:#3d6e2c}.warn{color:#9b2525;border-color:#9b2525}.ban{grid-column:1/-1;background:#5e1717;color:#f5c9b8;border-color:#c04736}
+.stamp:hover{transform:translateY(3px) rotate(1deg);filter:brightness(1.25)}.ai-meter{height:13px;background:#3b382c;margin:7px 0}.ai-meter i{display:block;height:100%;background:#9a2e24}
+.status-open{color:#d9b34a}.status-closed{color:#75a95b}
+@keyframes dossierIn{from{transform:translateY(45px) rotate(-3deg);opacity:0}to{transform:translateY(0) rotate(-.4deg);opacity:1}}.paper{animation:dossierIn .45s ease-out}
+@media(max-width:900px){.desk{grid-template-columns:1fr}.paper{min-height:auto}}
+</style>
+"""
+
+@app.get("/inspector",response_class=HTMLResponse)
+async def inspector_queue(request:Request):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login")
+    rows=await db.recent_incidents(50)
+    items="".join(f"<div class='row'><div><b>ДЕЛО #{r['id']}</b> · USER {r['user_id']}<div class='muted'>{r['category']} · {r['reason']}</div></div><a class='btn' href='/case/{r['id']}'>ОТКРЫТЬ ДОСЬЕ</a></div>" for r in rows if r["status"]=="open")
+    body=INSPECTOR_STYLE+f"<h1>🎮 Режим инспектора</h1><p class='muted'>Очередь реальных дел Telegram-модерации.</p><div class='panel'>{items or 'Открытых дел нет. Смена спокойная.'}</div>"
+    return HTMLResponse(layout("Режим инспектора",body,uid))
+
+@app.get("/case/{incident_id}",response_class=HTMLResponse)
+async def case_view(incident_id:int,request:Request):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login")
+    case=await db.get_incident(incident_id)
+    if not case:return HTMLResponse(layout("Дело не найдено","<h1>Дело не найдено</h1>",uid),404)
+    msgs=await db.user_messages(case["chat_id"],case["user_id"],80)
+    transcript="".join(
+        f"<div class='msg'><time>{x['created_at'].strftime('%d.%m %H:%M')}</time><br>{html_escape(x['text'])}</div>" for x in reversed(msgs)
+    )
+    score=max(0,min(100,int(case["score"]*100)))
+    closed=case["status"]!="open"
+    controls="" if closed else f"""<div class='stampbar'>
+      <form method='post' action='/case/{incident_id}/allow'><button class='stamp approve'>✓ ПОМИЛОВАН</button></form>
+      <form method='post' action='/case/{incident_id}/warn'><button class='stamp warn'>! ПРЕДУПРЕЖДЕНИЕ</button></form>
+      <form method='post' action='/case/{incident_id}/ban'><button class='stamp ban'>🔫 БАН / ЗАКРЫТЬ ДОПУСК</button></form>
+    </div>"""
+    body=INSPECTOR_STYLE+f"""<h1>Дело #{incident_id}</h1><div class='inspector'><div class='desk'>
+      <section class='paper'><div class='casehead'><b>ДОСЬЕ ПОЛЬЗОВАТЕЛЯ</b><span>#{case['user_id']}</span></div>
+      <b>ЖУРНАЛ СООБЩЕНИЙ</b><div class='messages'>{transcript or 'История пуста.'}</div></section>
+      <aside><div class='passport'><h2>КАРТА ДОПУСКА</h2><p>USER ID<br><b>{case['user_id']}</b></p>
+      <p>ЧАТ<br><b>{case['chat_id']}</b></p><p>КАТЕГОРИЯ<br><b>{html_escape(case['category'])}</b></p>
+      <p>AI УВЕРЕННОСТЬ: <b>{score}%</b></p><div class='ai-meter'><i style='width:{score}%'></i></div>
+      <p>ОСНОВАНИЕ<br>{html_escape(case['reason'])}</p><p>СТАТУС: <b class='{'status-closed' if closed else 'status-open'}'>{html_escape(case['status'].upper())}</b></p></div>
+      {controls}</aside></div></div>"""
+    return HTMLResponse(layout(f"Дело #{incident_id}",body,uid))
+
+def html_escape(value):
+    import html
+    return html.escape(str(value))
+
+@app.post("/case/{incident_id}/{decision}")
+async def case_decision(incident_id:int,decision:str,request:Request):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login",303)
+    if decision not in {"allow","warn","ban"}:return RedirectResponse(f"/case/{incident_id}",303)
+    case=await db.get_incident(incident_id)
+    if not case or case["status"]!="open":return RedirectResponse(f"/case/{incident_id}",303)
+    # Web UI records the adjudication atomically. Telegram execution is handled by bot callbacks;
+    # a command queue worker will be used for direct web-triggered Telegram sanctions.
+    await db.resolve_incident(incident_id,decision)
+    return RedirectResponse(f"/case/{incident_id}",303)

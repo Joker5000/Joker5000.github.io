@@ -1,4 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from .config import settings
 
 def admin_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -10,10 +11,13 @@ def admin_menu():
          InlineKeyboardButton(text="📜 Журнал", callback_data="adm:logs")],
     ])
 
-def punishment_menu(chat_id:int,user_id:int):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚠️ Предупредить", callback_data=f"act:warn:{chat_id}:{user_id}"),
-         InlineKeyboardButton(text="🔇 Мут 24ч", callback_data=f"act:mute:{chat_id}:{user_id}")],
-        [InlineKeyboardButton(text="⛔ Забанить", callback_data=f"act:ban:{chat_id}:{user_id}"),
-         InlineKeyboardButton(text="✅ Оставить", callback_data=f"act:allow:{chat_id}:{user_id}")],
-    ])
+def punishment_menu(chat_id:int,user_id:int,incident_id:int|None=None):
+    rows=[
+        [InlineKeyboardButton(text="🟢 ПОМИЛОВАН", callback_data=f"case:allow:{incident_id or 0}:{chat_id}:{user_id}"),
+         InlineKeyboardButton(text="🔴 ПРЕДУПРЕЖДЕНИЕ", callback_data=f"case:warn:{incident_id or 0}:{chat_id}:{user_id}")],
+        [InlineKeyboardButton(text="🔇 МУТ 24Ч", callback_data=f"case:mute:{incident_id or 0}:{chat_id}:{user_id}"),
+         InlineKeyboardButton(text="🔫 БАН", callback_data=f"case:ban:{incident_id or 0}:{chat_id}:{user_id}")],
+    ]
+    if incident_id and settings.web_public_url:
+        rows.append([InlineKeyboardButton(text="🎮 ОТКРЫТЬ ДЕЛО",url=f"{settings.web_public_url.rstrip('/')}/case/{incident_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS message_log (
     UNIQUE(chat_id, message_id)
 );
 CREATE INDEX IF NOT EXISTS idx_message_log_user ON message_log(chat_id,user_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS moderation_commands (
+    id BIGSERIAL PRIMARY KEY,
+    incident_id BIGINT NOT NULL UNIQUE,
+    admin_id BIGINT NOT NULL,
+    action TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    executed_at TIMESTAMPTZ
+);
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -202,3 +212,25 @@ async def resolve_incident(incident_id:int,status:str)->bool:
             incident_id,status
         )
         return bool(row)
+
+
+async def queue_case_command(incident_id:int,admin_id:int,action:str)->bool:
+    async with pool.acquire() as con:
+        async with con.transaction():
+            case=await con.fetchrow("SELECT status FROM incidents WHERE id=$1 FOR UPDATE",incident_id)
+            if not case or case["status"]!="open": return False
+            await con.execute("INSERT INTO moderation_commands(incident_id,admin_id,action) VALUES($1,$2,$3)",incident_id,admin_id,action)
+            await con.execute("UPDATE incidents SET status='processing' WHERE id=$1",incident_id)
+            return True
+
+async def pending_commands(limit:int=20):
+    async with pool.acquire() as con:
+        return await con.fetch("""SELECT c.id,c.incident_id,c.admin_id,c.action,i.chat_id,i.user_id
+        FROM moderation_commands c JOIN incidents i ON i.id=c.incident_id
+        WHERE c.status='pending' ORDER BY c.id LIMIT $1""",limit)
+
+async def finish_command(command_id:int,incident_id:int,final_status:str,error:str|None=None):
+    async with pool.acquire() as con:
+        async with con.transaction():
+            await con.execute("UPDATE moderation_commands SET status=$2,error=$3,executed_at=now() WHERE id=$1",command_id,"done" if error is None else "failed",error)
+            await con.execute("UPDATE incidents SET status=$2 WHERE id=$1",incident_id,final_status if error is None else "open")

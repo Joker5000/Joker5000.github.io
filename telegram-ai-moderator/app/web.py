@@ -355,3 +355,65 @@ async def inspector_game(incident_id:int,request:Request):
 <div class='doc messages drag'><h3>ВЕДОМОСТЬ СООБЩЕНИЙ</h3><div class='scroll'>{transcript or 'Сообщений нет'}</div></div>
 <div class='doc passport drag'><h2>TELEGRAM · ПРОПУСК</h2><div class='pgrid'><div class='photo'>{photo}</div><div class='fields'><b>{name}</b><br>@{username or '—'}<br>ID {case['user_id']}<hr>ВПЕРВЫЕ: {first}<br>ВХОД В ЧАТ: {joined}<br>СООБЩЕНИЙ: {count}<br>ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}<br><b>СТАТУС: {html_escape(case['status']).upper()}</b></div><div class='passport-mark'></div></div>
 <div id='verdict' class='verdict'></div></section></div></div><script src='/assets/inspector.js'></script></body></html>""")
+
+
+def game_bridge_authorized(request:Request)->bool:
+    token=request.headers.get("X-Game-Bridge-Token","")
+    return bool(settings.game_bridge_token) and hmac.compare_digest(token,settings.game_bridge_token)
+
+@app.get("/api/game/next")
+async def game_bridge_next(request:Request):
+    if not game_bridge_authorized(request):
+        return Response(content="unauthorized",status_code=401)
+    rows=await db.recent_incidents(100)
+    case=next((r for r in reversed(rows) if r["status"]=="open"),None)
+    if not case:
+        return {"case":None}
+    profile=await db.get_user_profile(case["chat_id"],case["user_id"])
+    messages=await db.user_messages(case["chat_id"],case["user_id"],120)
+    warnings=await db.warning_count(case["chat_id"],case["user_id"])
+    total_cases=await db.incident_count(case["chat_id"],case["user_id"])
+    return {
+        "case":{
+            "id":case["id"],
+            "chat_id":case["chat_id"],
+            "user_id":case["user_id"],
+            "category":case["category"],
+            "reason":case["reason"],
+            "score":float(case["score"]),
+            "status":case["status"],
+            "user":{
+                "username":profile["username"] if profile else None,
+                "display_name":profile["display_name"] if profile else None,
+                "first_seen_at":profile["first_seen_at"].isoformat() if profile else None,
+                "joined_at":profile["joined_at"].isoformat() if profile and profile["joined_at"] else None,
+                "message_count":int(profile["message_count"]) if profile else len(messages),
+                "warnings":warnings,
+                "cases":total_cases,
+                "photo_url":f"/case/{case['id']}/photo" if profile and profile["photo_file_id"] else None
+            },
+            "messages":[
+                {"message_id":m["message_id"],"text":m["text"],"created_at":m["created_at"].isoformat()}
+                for m in reversed(messages)
+            ]
+        }
+    }
+
+@app.post("/api/game/case/{incident_id}/decision")
+async def game_bridge_decision(incident_id:int,request:Request):
+    if not game_bridge_authorized(request):
+        return Response(content="unauthorized",status_code=401)
+    try:
+        body=await request.json()
+    except Exception:
+        body={}
+    action=str(body.get("action","")).lower()
+    mapping={"approved":"allow","allow":"allow","denied":"warn","warn":"warn","detained":"mute","mute":"mute","shot":"ban","ban":"ban"}
+    decision=mapping.get(action)
+    if not decision:
+        return {"ok":False,"error":"unknown_action"}
+    case=await db.get_incident(incident_id)
+    if not case or case["status"]!="open":
+        return {"ok":False,"error":"case_not_open"}
+    queued=await db.queue_case_command(incident_id,settings.owner_telegram_id,decision)
+    return {"ok":bool(queued),"decision":decision}

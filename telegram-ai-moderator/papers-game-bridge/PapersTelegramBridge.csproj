@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>PapersTelegramBridge</RootNamespace>
+    <PapersPleaseDir Condition="'$(PapersPleaseDir)'==''">C:\Program Files (x86)\Steam\steamapps\common\PapersPlease</PapersPleaseDir>
+    <RestoreAdditionalProjectSources>https://api.nuget.org/v3/index.json;https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.*" IncludeAssets="compile" />
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(PapersPleaseDir)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(PapersPleaseDir)\BepInEx\interop\Assembly-CSharp.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(PapersPleaseDir)\BepInEx\interop\UnityEngine.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(PapersPleaseDir)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+</Project>

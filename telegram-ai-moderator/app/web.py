@@ -31,7 +31,7 @@ app.add_middleware(SessionMiddleware,secret_key=settings.web_session_secret,http
 
 @app.get("/assets/{name}")
 async def assets(name:str):
-    if name not in {"inspector.css","inspector.js"}: return Response(status_code=404)
+    if name not in {"inspector.css","inspector.js","papers_engine.css","papers_engine.js"}: return Response(status_code=404)
     return FileResponse(f"assets/{name}")
 
 STYLE="""
@@ -338,23 +338,55 @@ async def inspector_game(incident_id:int,request:Request):
     count=p["message_count"] if p else len(msgs)
     transcript="".join(f"<div class='msg'><b>{x['created_at'].strftime('%d.%m %H:%M')}</b><br>{html_escape(x['text'])}</div>" for x in reversed(msgs))
     photo=f"<img src='/case/{incident_id}/photo' onerror=\"this.remove();this.parentElement.innerHTML='USER'\">"
-    return HTMLResponse(f"""<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><link rel='stylesheet' href='/assets/inspector.css'><body>
-<div class='game'><div class='scene'><div class='statusline'>СМЕНА · ДЕЛО #{incident_id} · AI {score}%</div>
-<section class='yard'><div class='fence'></div><div class='queue'><i class='person'></i><i class='person'></i><i class='person'></i><i class='person'></i><i class='person'></i><i class='person'></i></div><div class='road'></div><div class='barrier'></div><div class='booth'><div class='face'>{photo}</div></div><div class='counter'></div></section>
-<section class='desk'><div class='mic'></div><div class='tray'></div><div class='weight'>51 kg</div>
-<div class='stamp-zone'></div>
-<button class='ban-lever' onclick="banConfirm({incident_id})">▰ БАН<br>РЫЧАГ</button>
-<div class='stamp-housing'>
-  <button class='stamp-handle' onclick="toggleStampDrawer()">ШТАМПЫ<br>⇆</button>
-  <div class='stamp-drawer'>
-    <button class='stamp red' onclick="stampDecision({incident_id},'warn','ПРЕДУПРЕЖДЁН',this)">DENIED<br>ПРЕД</button>
-    <button class='stamp green' onclick="stampDecision({incident_id},'allow','ПОМИЛОВАН',this)">APPROVED<br>ПРОПУСТИТЬ</button>
+    return HTMLResponse(f"""<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><link rel='stylesheet' href='/assets/papers_engine.css'><body>
+<div class='pp'>
+<section class='outside'>
+  <div class='fence'></div>
+  <div class='queue'><i class='q'></i><i class='q'></i><i class='q'></i><i class='q'></i><i class='q'></i></div>
+  <div class='road'></div>
+  <div class='checkpoint'><div class='window'><div class='traveler'><img src='/case/{incident_id}/photo' onerror="this.style.display='none'"></div></div><div class='counter'></div></div>
+</section>
+<section class='desk'>
+  <div class='hint'>СМЕНА · ДЕЛО #{incident_id} · AI {score}%</div>
+  <div class='callout'>ДОКУМЕНТЫ ПРИНЯТЫ. ПРОВЕРЬТЕ ДЕЛО.</div>
+  <button class='return-slot'>ВЕРНУТЬ ДОКУМЕНТЫ</button>
+  <div class='stamp-zone'></div>
+  <button class='ban-lever' onclick="InspectorGame.ban()">БАН<br>РЫЧАГ</button>
+  <div class='stamp-housing'>
+    <button class='stamp-handle'>ШТАМПЫ<br>⇆</button>
+    <div class='stamp-drawer'>
+      <button class='stamp red' onclick="InspectorGame.stamp('warn','ПРЕДУПРЕЖДЁН',this)">DENIED<br>ПРЕД</button>
+      <button class='stamp green' onclick="InspectorGame.stamp('allow','ПОМИЛОВАН',this)">APPROVED<br>ПРОПУСТИТЬ</button>
+    </div>
   </div>
+
+  <div class='doc ledger drag'>
+    <h3>СЛУЖЕБНЫЙ БЮЛЛЕТЕНЬ AI</h3>
+    <div class='checks'><span class='tag'>ЖАЛОБА</span> {html_escape(case['category']).upper()}<br>
+    <b>AI УВЕРЕННОСТЬ: {score}%</b><div class='meter'><i style='width:{score}%'></i></div>
+    <div class='ai-note'>ОСНОВАНИЕ:<br>{html_escape(case['reason'])}</div><hr>
+    ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}<br>
+    ПРОВЕРЬТЕ ИСТОРИЮ СООБЩЕНИЙ<br>СВЕРЬТЕ С ПРАВИЛАМИ ЧАТА</div>
+  </div>
+
+  <div class='doc messages drag'>
+    <h3>ВЕДОМОСТЬ СООБЩЕНИЙ</h3>
+    <div class='scroll'>{transcript or 'Сообщений нет'}</div>
+  </div>
+
+  <div class='doc passport drag'>
+    <h2>TELEGRAM · ПРОПУСК</h2>
+    <div class='pgrid'><div class='photo'>{photo}</div><div class='fields'>
+      <b>{name}</b><br>@{username or '—'}<br>ID {case['user_id']}<hr>
+      ВПЕРВЫЕ: {first}<br>ВХОД В ЧАТ: {joined}<br>СООБЩЕНИЙ: {count}<br>
+      ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}<br><b>СТАТУС: {html_escape(case['status']).upper()}</b>
+    </div></div><div class='passport-mark'></div>
+  </div>
+</section>
 </div>
-<div class='doc ledger drag'><h3>СЛУЖЕБНЫЙ БЮЛЛЕТЕНЬ AI</h3><div class='checks'><span class='tag'>ЖАЛОБА</span> {html_escape(case['category']).upper()}<br><b>AI УВЕРЕННОСТЬ: {score}%</b><div class='meter'><i style='width:{score}%'></i></div><div class='ai-note'>ОСНОВАНИЕ:<br>{html_escape(case['reason'])}</div><hr>⚠ ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>▣ ДЕЛ НА ПОЛЬЗОВАТЕЛЯ: {cases}<br>☑ ПРОВЕРЬТЕ ИСТОРИЮ СООБЩЕНИЙ<br>☑ СВЕРЬТЕ С ПРАВИЛАМИ ЧАТА<br><br><b>РЕШЕНИЕ ПРИНИМАЕТ АДМИНИСТРАТОР</b></div></div>
-<div class='doc messages drag'><h3>ВЕДОМОСТЬ СООБЩЕНИЙ</h3><div class='scroll'>{transcript or 'Сообщений нет'}</div></div>
-<div class='doc passport drag'><h2>TELEGRAM · ПРОПУСК</h2><div class='pgrid'><div class='photo'>{photo}</div><div class='fields'><b>{name}</b><br>@{username or '—'}<br>ID {case['user_id']}<hr>ВПЕРВЫЕ: {first}<br>ВХОД В ЧАТ: {joined}<br>СООБЩЕНИЙ: {count}<br>ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}<br><b>СТАТУС: {html_escape(case['status']).upper()}</b></div><div class='passport-mark'></div></div>
-<div id='verdict' class='verdict'></div></section></div></div><script src='/assets/inspector.js'></script></body></html>""")
+<script src='/assets/papers_engine.js'></script>
+<script>InspectorGame.init({incident_id});</script>
+</body></html>""")
 
 
 def game_bridge_authorized(request:Request)->bool:

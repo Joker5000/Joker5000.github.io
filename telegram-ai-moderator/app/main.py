@@ -8,6 +8,7 @@ from . import db
 from .keyboards import admin_menu, punishment_menu
 from .web import hash_password
 from .personality import social_tick
+from .moderation import process_moderation
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -131,6 +132,7 @@ async def action(q: CallbackQuery, bot: Bot):
 
 @dp.message()
 async def social_messages(m: Message, bot: Bot):
+    await process_moderation(bot, m)
     await social_tick(bot, m)
 
 async def main():

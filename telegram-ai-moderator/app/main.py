@@ -136,6 +136,12 @@ async def case_action(q: CallbackQuery, bot: Bot):
     await q.message.edit_text(q.message.text+"\n\n<b>"+result+"</b>",parse_mode="HTML")
     await q.answer("Решение принято")
 
+@dp.message(F.new_chat_members)
+async def joined_members(m: Message):
+    for user in m.new_chat_members:
+        if not user.is_bot:
+            await db.mark_joined(m.chat.id,user.id,user.username,user.full_name)
+
 @dp.message()
 async def social_messages(m: Message, bot: Bot):
     await process_moderation(bot, m)

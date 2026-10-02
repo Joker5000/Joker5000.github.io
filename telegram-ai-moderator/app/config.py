@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ai_enabled: bool = False
     web_session_secret: str = "change-me"
     web_port: int = 8080
+    web_public_url: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

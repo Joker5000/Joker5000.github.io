@@ -134,3 +134,29 @@ async def set_setting(key:str,value:str):
     async with pool.acquire() as con:
         await con.execute("""INSERT INTO app_settings(key,value) VALUES($1,$2)
         ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()""",key,value)
+
+
+async def active_rules():
+    async with pool.acquire() as con:
+        return await con.fetch("SELECT id,title,description FROM rules WHERE enabled ORDER BY id")
+
+async def admin_ids():
+    async with pool.acquire() as con:
+        rows=await con.fetch("SELECT telegram_id FROM admins")
+        return [int(r["telegram_id"]) for r in rows]
+
+async def create_incident(chat_id:int,user_id:int,message_id:int|None,category:str,reason:str,score:float)->int:
+    async with pool.acquire() as con:
+        return await con.fetchval(
+            """INSERT INTO incidents(chat_id,user_id,message_id,category,reason,score)
+               VALUES($1,$2,$3,$4,$5,$6) RETURNING id""",
+            chat_id,user_id,message_id,category,reason,float(score)
+        )
+
+async def set_incident_status(incident_id:int,status:str):
+    async with pool.acquire() as con:
+        await con.execute("UPDATE incidents SET status=$2 WHERE id=$1",incident_id,status)
+
+async def user_warning_count(chat_id:int,user_id:int)->int:
+    async with pool.acquire() as con:
+        return int(await con.fetchval("SELECT count(*) FROM warnings WHERE chat_id=$1 AND user_id=$2",chat_id,user_id) or 0)

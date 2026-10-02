@@ -33,6 +33,7 @@ cp -a "$tmpdir/repo/$SRC_SUBDIR/." "$APP_DIR/"
 cd "$APP_DIR"
 
 POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+WEB_SESSION_SECRET="$(openssl rand -hex 48)"
 
 echo
 echo "╔════════════════════════════════════════════╗"
@@ -76,6 +77,8 @@ OPENAI_API_KEY=$AI_KEY
 OPENAI_BASE_URL=$AI_BASE
 OPENAI_MODEL=$AI_MODEL
 AI_ENABLED=$AI_ENABLED
+WEB_SESSION_SECRET=$WEB_SESSION_SECRET
+WEB_PORT=8080
 EOF
 chmod 600 .env
 
@@ -112,6 +115,7 @@ CLI
 chmod +x /usr/local/bin/moderator
 
 ufw allow OpenSSH >/dev/null 2>&1 || true
+# Веб-панель по умолчанию слушает только localhost. Используйте SSH tunnel или reverse proxy с HTTPS.
 ufw --force enable >/dev/null 2>&1 || true
 
 docker compose up -d --build
@@ -129,6 +133,12 @@ echo "  1) Добавьте бота в Telegram-группу."
 echo "  2) Выдайте ему права удаления сообщений, мута и бана."
 echo "  3) Напишите боту в ЛС /start."
 echo "  4) Второго администратора добавьте: /addadmin TELEGRAM_ID"
+echo "  5) В личке задайте пароль панели: /webpass ВАШ_НАДЁЖНЫЙ_ПАРОЛЬ"
+echo
+echo "Веб-панель безопасно слушает только 127.0.0.1:8080."
+echo "С компьютера откройте SSH-туннель:"
+echo "  ssh -L 8080:127.0.0.1:8080 root@IP_ВАШЕЙ_VM"
+echo "Затем откройте: http://127.0.0.1:8080"
 echo
 echo "Команды VM:"
 echo "  moderator status"

@@ -34,6 +34,7 @@ cd "$APP_DIR"
 
 POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 WEB_SESSION_SECRET="$(openssl rand -hex 48)"
+GAME_BRIDGE_TOKEN="$(openssl rand -hex 32)"
 
 echo
 echo "╔════════════════════════════════════════════╗"
@@ -80,6 +81,7 @@ AI_ENABLED=$AI_ENABLED
 WEB_SESSION_SECRET=$WEB_SESSION_SECRET
 WEB_PORT=8080
 WEB_PUBLIC_URL=
+GAME_BRIDGE_TOKEN=$GAME_BRIDGE_TOKEN
 EOF
 chmod 600 .env
 
@@ -137,6 +139,7 @@ echo "  4) Второго администратора добавьте: /addadm
 echo "  5) В личке задайте пароль панели: /webpass ВАШ_НАДЁЖНЫЙ_ПАРОЛЬ"
 echo
 echo "Веб-панель безопасно слушает только 127.0.0.1:8080."
+echo "Game Bridge token сохранён в /opt/tg-ai-moderator/.env"
 echo "С компьютера откройте SSH-туннель:"
 echo "  ssh -L 8080:127.0.0.1:8080 root@IP_ВАШЕЙ_VM"
 echo "Затем откройте: http://127.0.0.1:8080"

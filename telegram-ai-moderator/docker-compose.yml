@@ -20,11 +20,6 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
 
   bot:
     build: .
@@ -36,7 +31,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+
+  web:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.web_main"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://moderator:${POSTGRES_PASSWORD}@postgres:5432/moderator
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    depends_on:
+      postgres:
         condition: service_healthy
 
 volumes:

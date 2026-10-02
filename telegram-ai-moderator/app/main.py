@@ -107,28 +107,33 @@ async def deladmin(m: Message):
     await db.remove_admin(int(parts[1]))
     await m.answer("✅ Администратор удалён.")
 
-@dp.callback_query(F.data.startswith("act:"))
-async def action(q: CallbackQuery, bot: Bot):
+@dp.callback_query(F.data.startswith("case:"))
+async def case_action(q: CallbackQuery, bot: Bot):
     if not await require_admin(q): return
-    _, action_name, chat_s, user_s = q.data.split(":")
-    chat_id,user_id=int(chat_s),int(user_s)
+    _,action_name,incident_s,chat_s,user_s=q.data.split(":")
+    incident_id,chat_id,user_id=int(incident_s),int(chat_s),int(user_s)
+
+    if incident_id and not await db.resolve_incident(incident_id,action_name):
+        return await q.answer("Это дело уже рассмотрено другим администратором.",show_alert=True)
+
     if action_name=="warn":
-        n=await db.add_warning(chat_id,user_id,q.from_user.id,"Подтверждено администратором")
+        n=await db.add_warning(chat_id,user_id,q.from_user.id,f"Дело #{incident_id}")
         try: await bot.send_message(chat_id,f"⚠️ Пользователь <code>{user_id}</code> получает предупреждение {n}.",parse_mode="HTML")
         except Exception: pass
-        result=f"⚠️ Предупреждение выдано. Всего: {n}"
+        result=f"🔴 ШТАМП: ПРЕДУПРЕЖДЕНИЕ · всего {n}"
     elif action_name=="mute":
         import datetime
         until=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=24)
         await bot.restrict_chat_member(chat_id,user_id,ChatPermissions(can_send_messages=False),until_date=until)
-        result="🔇 Пользователь получил мут на 24 часа."
+        result="🔴 ШТАМП: МУТ 24 ЧАСА"
     elif action_name=="ban":
         await bot.ban_chat_member(chat_id,user_id)
-        result="⛔ Пользователь заблокирован."
+        result="🔫 РЕШЕНИЕ: БАН"
     else:
-        result="✅ Инцидент оставлен без санкций."
-    await q.message.edit_text(q.message.text+"\n\n"+result)
-    await q.answer("Готово")
+        result="🟢 ШТАМП: ПОМИЛОВАН"
+
+    await q.message.edit_text(q.message.text+"\n\n<b>"+result+"</b>",parse_mode="HTML")
+    await q.answer("Решение принято")
 
 @dp.message()
 async def social_messages(m: Message, bot: Bot):

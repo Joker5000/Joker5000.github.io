@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Moderator — Inspector Mode</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div id="viewport">
+<div id="game">
+<section class="yard">
+  <div class="yard-grid"></div>
+  <div class="crowd"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="lane lane-a"></div><div class="lane lane-b"></div>
+  <div class="gate gate-a"></div><div class="gate gate-b"></div>
+  <div class="guard guard-a"></div><div class="guard guard-b"></div>
+  <div class="booth-roof"></div>
+</section>
+
+<section class="desk">
+  <div class="visitor-zone">
+    <div class="visitor-card">
+      <div class="speech">Вот мои документы.</div>
+      <div class="visitor-photo"><img src="https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Maxim" alt=""></div>
+    </div>
+    <div class="counter"></div>
+  </div>
+
+  <div class="tool-row">
+    <div class="calendar">02.11.26</div><div class="slot"></div><div class="speaker"></div><div class="tray"></div><div class="scale">51 kg</div>
+  </div>
+
+  <div class="stamp-machine" id="stampMachine">
+    <button class="stamp-pull" id="stampPull">ШТАМПЫ<br>⇆</button>
+    <div class="stamp-rail">
+      <button class="stamp-head deny" data-action="warn">DENIED<div class="stamp-knob"></div></button>
+      <button class="stamp-head approve" data-action="allow">APPROVED<div class="stamp-knob"></div></button>
+      <button class="stamp-head ban" data-action="ban">БАН<div class="stamp-knob"></div></button>
+    </div>
+    <div class="stamp-caption">ПОМЕСТИТЕ ПАСПОРТ ПОД ШТАМП</div>
+  </div>
+
+  <article class="paper messages draggable" id="messagesPaper">
+    <header>ИСТОРИЯ СООБЩЕНИЙ <small>1 / 5</small></header>
+    <div class="paper-body messages-list">
+      <p><b>[14:32]</b> Привет всем!</p>
+      <p><b>[14:35]</b> Кто-нибудь знает где скачать DBD бесплатно?</p>
+      <p class="flagged"><b>[14:41]</b> Заходите на мой канал t.me/cheatgames</p>
+      <p><b>[14:42]</b> Лучшие читы тут t.me/cheatgames !!!</p>
+      <p><b>[14:50]</b> +rep работает 100%</p>
+      <p><b>[15:02]</b> Продам аккаунт Steam, дешево!</p>
+      <p class="flagged"><b>[15:10]</b> t.me/cheatgames</p>
+      <p><b>[15:18]</b> Скамите админы все равно спят))</p>
+    </div>
+  </article>
+
+  <article class="paper ai-book draggable" id="aiBook">
+    <header>AI ЗАКЛЮЧЕНИЕ</header>
+    <div class="paper-body">
+      <div class="case">ДЕЛО №00428</div>
+      <p>Категория: <b>Реклама / Спам</b></p>
+      <p>Уверенность: <b>87%</b></p>
+      <div class="confidence"><i style="width:87%"></i></div>
+      <p class="label">Выявленные нарушения:</p>
+      <ul>
+        <li>☑ Сторонняя реклама</li><li>☑ Повторные сообщения</li><li>☑ Продажа аккаунтов</li>
+        <li>☐ Фишинг / Скам</li><li>☐ Оскорбления</li><li>☐ Обход наказаний</li>
+      </ul>
+      <p class="label">Нарушенные правила:</p>
+      <p>#4 — Запрещена реклама<br>#7 — Повтор после предупреждения</p>
+    </div>
+  </article>
+
+  <article class="paper passport draggable" id="passport">
+    <header>ПАСПОРТ ПОЛЬЗОВАТЕЛЯ<br>TELEGRAM</header>
+    <div class="passport-inner">
+      <div class="avatar"><img src="https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Maxim" alt=""></div>
+      <div class="fields">
+        <p>Имя: <b>Максим</b></p><p>Ник: <b>@example_user</b></p><p>ID: <b>123456789</b></p>
+        <p>Впервые замечен: <b>12.08.2026</b></p><p>Вступил в чат: <b>14.08.2026</b></p>
+        <p>Сообщений: <b>4281</b></p><p>Предупреждений: <b>2</b></p><p>Мутов: <b>1</b></p><p>Предыдущих дел: <b>3</b></p>
+      </div>
+    </div>
+    <div class="mrz">P&lt;TG&lt;EXAMPLE_USER&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>1234567890&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>
+    <div class="passport-stamp" id="passportStamp"></div>
+  </article>
+
+  <div class="stamp-zone" id="stampZone"></div>
+  <button class="return-docs" id="returnDocs">ВЕРНУТЬ ДОКУМЕНТЫ</button>
+  <div class="footer-guide">ПЕРЕТАСКИВАЙТЕ ДОКУМЕНТЫ · ПРОВЕРЬТЕ ДАННЫЕ · ПОСТАВЬТЕ ШТАМП · ВЕРНИТЕ ДОКУМЕНТЫ</div>
+  <div class="alarm">!</div>
+</section>
+</div>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>

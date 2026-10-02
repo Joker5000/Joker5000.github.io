@@ -45,7 +45,7 @@ def layout(title:str,body:str,user_id:int|None=None)->str:
     if user_id is None:return f"<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>{title}</title>{STYLE}<body>{body}</body></html>"
     nav="""<div class='side'><div class='logo'>🛡 <span>AI</span> Moderator</div><div class='nav'>
     <a href='/'>📊 Обзор</a><a href='/rules'>📋 Правила</a><a href='/admins'>👮 Администраторы</a>
-    <a href='/incidents'>🚨 Инциденты</a><a href='/settings'>⚙️ Настройки</a><a href='/logout'>🚪 Выйти</a></div></div>"""
+    <a href='/incidents'>🚨 Инциденты</a><a href='/character'>✨ Character Studio</a><a href='/settings'>⚙️ Настройки</a><a href='/logout'>🚪 Выйти</a></div></div>"""
     return f"<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>{title}</title>{STYLE}<body><div class='shell'>{nav}<main class='main'>{body}</main></div></body></html>"
 
 async def current_admin(request:Request):
@@ -178,3 +178,52 @@ async def save_settings(request:Request,mode:str=Form(...),social:str=Form("true
     await db.set_setting("chat_cooldown_sec",cooldown)
     await db.set_setting("persona_prompt",persona[:2000])
     return RedirectResponse("/settings",303)
+
+
+@app.get("/character",response_class=HTMLResponse)
+async def character(request:Request):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login")
+    name=await db.get_setting("character_name","Astra")
+    bio=await db.get_setting("character_bio","AI-модератор сообщества")
+    style=await db.get_setting("character_style","Дружелюбный, уверенный, немного ироничный")
+    emoji=await db.get_setting("character_emoji","🛡️ ✨ 👀 😂 🔥 ❤️")
+    persona=await db.get_setting("persona_prompt","Ты русскоязычный AI-модератор. Общайся естественно, кратко и дружелюбно.")
+    body=f"""<h1>✨ Character Studio</h1>
+    <div class='panel'><h2>Образ модератора</h2><p class='muted'>Эти параметры влияют только на общение и внешний образ. На решения о наказаниях они не влияют.</p>
+    <form method='post'>
+    <label>Имя персонажа</label><input name='name' maxlength='64' value='{name}'>
+    <label>Описание</label><input name='bio' maxlength='120' value='{bio}'>
+    <label>Стиль общения</label><select name='preset'>
+      <option value='friendly'>Дружелюбный</option><option value='serious'>Серьёзный</option>
+      <option value='ironic'>Ироничный</option><option value='anime'>Аниме-помощник</option><option value='custom'>Свой</option>
+    </select>
+    <label>Описание характера</label><input name='style' value='{style}'>
+    <label>Любимые emoji</label><input name='emoji' value='{emoji}'>
+    <label>Подробная инструкция поведения</label><textarea name='persona'>{persona}</textarea>
+    <button>💾 Сохранить персонажа</button></form></div>
+    <div class='panel' style='margin-top:16px'><h2>🎭 Состояния аватара</h2>
+    <div class='cards'><div class='card'>🙂 Обычный<br><span class='muted'>default</span></div>
+    <div class='card'>😂 Весёлый<br><span class='muted'>fun</span></div>
+    <div class='card'>⚠️ Тревога<br><span class='muted'>alert</span></div>
+    <div class='card'>🌙 Ночной<br><span class='muted'>night</span></div></div>
+    <p class='muted'>Автоматическое переключение Telegram-аватаров будет подключаться отдельным MTProto worker.</p></div>"""
+    return HTMLResponse(layout("Character Studio",body,uid))
+
+@app.post("/character")
+async def save_character(request:Request,name:str=Form(...),bio:str=Form(...),preset:str=Form("friendly"),style:str=Form(""),emoji:str=Form(""),persona:str=Form("")):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login",303)
+    presets={
+      "friendly":"Дружелюбный, спокойный и поддерживающий",
+      "serious":"Сдержанный, профессиональный и краткий",
+      "ironic":"Уверенный, слегка ироничный, без токсичности",
+      "anime":"Живой аниме-помощник, энергичный, но не навязчивый",
+      "custom":style
+    }
+    await db.set_setting("character_name",name[:64])
+    await db.set_setting("character_bio",bio[:120])
+    await db.set_setting("character_style",presets.get(preset,style)[:500])
+    await db.set_setting("character_emoji",emoji[:200])
+    await db.set_setting("persona_prompt",persona[:2000])
+    return RedirectResponse("/character",303)

@@ -71,6 +71,14 @@ async def analyze_message(m:Message)->dict|None:
 async def process_moderation(bot:Bot,m:Message):
     text=(m.text or m.caption or "").strip()
     if m.from_user and not m.from_user.is_bot and text:
+        photo_id=None
+        try:
+            photos=await bot.get_user_profile_photos(m.from_user.id,limit=1)
+            if photos.total_count and photos.photos:
+                photo_id=photos.photos[0][-1].file_id
+        except Exception:
+            pass
+        await db.touch_user(m.chat.id,m.from_user.id,m.from_user.username,m.from_user.full_name,photo_id)
         await db.log_user_message(m.chat.id,m.from_user.id,m.message_id,m.from_user.username,m.from_user.full_name,text)
     result=await analyze_message(m)
     if not result or not result.get("violation"):

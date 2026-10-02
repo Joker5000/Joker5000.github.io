@@ -46,11 +46,25 @@ linear-gradient(#2a2020,#1f1717);border-top:8px solid #0c0b0b}
 .photo{width:94px;height:108px;background:#786864;border:4px solid #4c3935;display:flex;align-items:center;justify-content:center;font-size:13px;overflow:hidden}
 .photo img{width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.35)}
 .fields{font-size:11px;line-height:1.42}
-.stampbox{position:absolute;right:1.9%;top:12.2%;width:520px;height:125px;background:#26201e;border:7px solid #39312c;display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:8px;padding:9px;z-index:9;box-shadow:0 6px 0 #0d0b0a}
-.stamp{border:7px solid #4b423b;background:#2a2421;color:#ddd;font:900 15px "Courier New";cursor:pointer;letter-spacing:1px;text-shadow:2px 2px #000}
-.stamp.green{background:#52751a;color:#c5e45d}.stamp.red{background:#871a20;color:#f26863}.stamp.gun{background:#362e2b;color:#f0c8a8}
-.stamp:active{transform:translateY(7px)}
+.stamp-housing{position:absolute;right:1.8%;top:10.8%;width:540px;height:132px;background:#211b19;border:8px solid #3b322e;z-index:10;box-shadow:0 7px 0 #0d0b0a;overflow:hidden}
+.stamp-handle{position:absolute;left:12px;top:43px;width:60px;height:42px;background:#40372f;border:5px solid #181310;color:#d9cfaa;font:900 11px "Courier New";cursor:pointer;z-index:3}
+.stamp-drawer{position:absolute;right:-455px;top:8px;width:450px;height:108px;background:#2a2421;border:5px solid #4a4039;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:9px;transition:right .26s steps(6,end);box-shadow:inset 0 0 0 4px #171311}
+.stamp-housing.open .stamp-drawer{right:8px}
+.stamp{position:relative;border:7px solid #4b423b;background:#2a2421;color:#ddd;font:900 15px "Courier New";cursor:pointer;letter-spacing:1px;text-shadow:2px 2px #000;overflow:hidden}
+.stamp.green{background:#52751a;color:#c5e45d}.stamp.red{background:#871a20;color:#f26863}
+.stamp:before{content:"";position:absolute;left:18%;right:18%;top:8px;height:22px;background:#171311;border:4px solid #4c423a}
+.stamp:after{content:"";position:absolute;left:28%;right:28%;bottom:7px;height:10px;background:#171311}
+.stamp.down{animation:stampDrop .32s steps(4,end)}
+@keyframes stampDrop{0%{transform:translateY(0)}50%{transform:translateY(15px)}100%{transform:translateY(0)}}
 .stamp:disabled{filter:grayscale(1);opacity:.5;cursor:not-allowed}
+.stamp-zone{position:absolute;right:4.2%;top:37.5%;width:340px;height:285px;border:4px dashed #6c6155;background:#1d171633;z-index:2;pointer-events:none}
+.stamp-zone:before{content:"ЗОНА ШТАМПА";position:absolute;right:7px;top:5px;color:#7d7163;font-size:10px}
+.ban-lever{position:absolute;right:1.7%;top:29.5%;width:86px;height:64px;background:#2a2320;border:6px solid #463b35;color:#e8c2a4;font:900 11px "Courier New";z-index:8;cursor:pointer}
+.passport.stamp-ready{outline:4px solid #8c825c;box-shadow:0 0 0 4px #15110f,7px 7px 0 #0007}
+.passport .passport-mark{position:absolute;right:18px;bottom:18px;border:6px solid;font-size:20px;font-weight:900;padding:5px 9px;transform:rotate(-8deg);opacity:.92;display:none}
+.passport .passport-mark.show{display:block;animation:markAppear .25s steps(3,end)}
+.passport .passport-mark.allow{color:#496d24;border-color:#496d24}.passport .passport-mark.warn,.passport .passport-mark.ban{color:#8b2424;border-color:#8b2424}
+@keyframes markAppear{from{transform:scale(1.9) rotate(-8deg);opacity:0}to{transform:scale(1) rotate(-8deg);opacity:.92}}
 .verdict{position:absolute;right:4%;top:55%;z-index:20;border:7px solid;padding:8px 14px;font-size:27px;font-weight:900;transform:rotate(-7deg);opacity:0;background:#d8b9acaa}
 .verdict.show{animation:slam .78s steps(5,end) forwards}
 @keyframes slam{0%{transform:translateY(-40px) scale(1.8) rotate(-7deg);opacity:0}55%{transform:translateY(7px) scale(.92) rotate(-7deg);opacity:1}100%{transform:translateY(0) scale(1) rotate(-7deg);opacity:.92}}

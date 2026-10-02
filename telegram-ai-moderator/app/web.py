@@ -292,7 +292,7 @@ async def case_decision(incident_id:int,decision:str,request:Request):
     if decision not in {"allow","warn","ban"}:return RedirectResponse(f"/case/{incident_id}",303)
     case=await db.get_incident(incident_id)
     if not case or case["status"]!="open":return RedirectResponse(f"/case/{incident_id}",303)
-    # Web UI records the adjudication atomically. Telegram execution is handled by bot callbacks;
-    # a command queue worker will be used for direct web-triggered Telegram sanctions.
-    await db.resolve_incident(incident_id,decision)
+    queued=await db.queue_case_command(incident_id,uid,decision)
+    if not queued:
+        return RedirectResponse(f"/case/{incident_id}",303)
     return RedirectResponse(f"/case/{incident_id}",303)

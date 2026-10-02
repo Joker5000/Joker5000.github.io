@@ -3,7 +3,7 @@ import hmac
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
 from . import db
@@ -28,6 +28,11 @@ async def lifespan(app:FastAPI):
 
 app=FastAPI(title="Telegram AI Moderator",lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=settings.web_session_secret,https_only=False,same_site="lax")
+
+@app.get("/assets/{name}")
+async def assets(name:str):
+    if name not in {"inspector.css","inspector.js"}: return Response(status_code=404)
+    return FileResponse(f"assets/{name}")
 
 STYLE="""
 <style>
@@ -250,7 +255,7 @@ async def inspector_queue(request:Request):
     uid=await current_admin(request)
     if not uid:return RedirectResponse("/login")
     rows=await db.recent_incidents(50)
-    items="".join(f"<div class='row'><div><b>ДЕЛО #{r['id']}</b> · USER {r['user_id']}<div class='muted'>{r['category']} · {r['reason']}</div></div><a class='btn' href='/case/{r['id']}'>ОТКРЫТЬ ДОСЬЕ</a></div>" for r in rows if r["status"]=="open")
+    items="".join(f"<div class='row'><div><b>ДЕЛО #{r['id']}</b> · USER {r['user_id']}<div class='muted'>{r['category']} · {r['reason']}</div></div><a class='btn' href='/case/{r['id']}/game'>🎮 НА СМЕНУ</a></div>" for r in rows if r["status"]=="open")
     body=INSPECTOR_STYLE+f"<h1>🎮 Режим инспектора</h1><p class='muted'>Очередь реальных дел Telegram-модерации.</p><div class='panel'>{items or 'Открытых дел нет. Смена спокойная.'}</div>"
     return HTMLResponse(layout("Режим инспектора",body,uid))
 
@@ -296,3 +301,47 @@ async def case_decision(incident_id:int,decision:str,request:Request):
     if not queued:
         return RedirectResponse(f"/case/{incident_id}",303)
     return RedirectResponse(f"/case/{incident_id}",303)
+
+
+@app.get("/case/{incident_id}/photo")
+async def inspector_photo(incident_id:int,request:Request):
+    uid=await current_admin(request)
+    if not uid:return Response(status_code=403)
+    case=await db.get_incident(incident_id)
+    if not case:return Response(status_code=404)
+    profile=await db.get_user_profile(case["chat_id"],case["user_id"])
+    if not profile or not profile["photo_file_id"]:return Response(status_code=404)
+    from aiogram import Bot
+    bot=Bot(settings.bot_token)
+    try:
+        f=await bot.get_file(profile["photo_file_id"])
+        data=await bot.download_file(f.file_path)
+        return Response(content=data.read(),media_type="image/jpeg",headers={"Cache-Control":"private,max-age=300"})
+    finally:
+        await bot.session.close()
+
+@app.get("/case/{incident_id}/game",response_class=HTMLResponse)
+async def inspector_game(incident_id:int,request:Request):
+    uid=await current_admin(request)
+    if not uid:return RedirectResponse("/login")
+    case=await db.get_incident(incident_id)
+    if not case:return HTMLResponse("Дело не найдено",404)
+    p=await db.get_user_profile(case["chat_id"],case["user_id"])
+    msgs=await db.user_messages(case["chat_id"],case["user_id"],120)
+    warnings=await db.warning_count(case["chat_id"],case["user_id"])
+    cases=await db.incident_count(case["chat_id"],case["user_id"])
+    score=max(0,min(100,int(case["score"]*100)))
+    name=html_escape(p["display_name"] if p else "НЕИЗВЕСТНО")
+    username=html_escape(p["username"] if p else "")
+    first=p["first_seen_at"].strftime("%d.%m.%Y") if p else "НЕИЗВ."
+    joined=p["joined_at"].strftime("%d.%m.%Y") if p and p["joined_at"] else "НЕ ЗАФИКС."
+    count=p["message_count"] if p else len(msgs)
+    transcript="".join(f"<div class='msg'><b>{x['created_at'].strftime('%d.%m %H:%M')}</b><br>{html_escape(x['text'])}</div>" for x in reversed(msgs))
+    photo=f"<img src='/case/{incident_id}/photo' onerror=\"this.remove();this.parentElement.innerHTML='USER'\">"
+    return HTMLResponse(f"""<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><link rel='stylesheet' href='/assets/inspector.css'><body>
+<div class='game'><section class='yard'><div class='queue'>♟ ♟ ♟ ♟ ♟</div><div class='booth'><div class='face'>USER</div></div></section><section class='desk'>
+<div class='stampbox'><button class='stamp green' onclick="decide({incident_id},'allow','ПОМИЛОВАН')">APPROVED<br>ПОМИЛОВАН</button><button class='stamp red' onclick="decide({incident_id},'warn','ПРЕДУПРЕЖДЁН')">WARNING<br>ПРЕД</button><button class='stamp gun' onclick="banConfirm({incident_id})">БАН<br>ЗАКРЫТЬ ДОПУСК</button></div>
+<div class='doc ledger drag'><h3>СЛУЖЕБНЫЙ БЛОКНОТ AI</h3><div class='checks'>ЖАЛОБА: <b>{html_escape(case['category']).upper()}</b><br>УВЕРЕННОСТЬ: {score}%<div class='meter'><i style='width:{score}%'></i></div><hr>ОСНОВАНИЕ:<br>{html_escape(case['reason'])}<hr>ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}<br><br>РЕШЕНИЕ ПРИНИМАЕТ АДМИНИСТРАТОР</div></div>
+<div class='doc messages drag'><h3>ЛИСТ СООБЩЕНИЙ</h3><div class='scroll'>{transcript or 'Сообщений нет'}</div></div>
+<div class='doc passport drag'><h2>TELEGRAM // ДОПУСК</h2><div class='pgrid'><div class='photo'>{photo}</div><div class='fields'><b>{name}</b><br>@{username or '—'}<br>ID {case['user_id']}<hr>ВПЕРВЫЕ ЗАМЕЧЕН: {first}<br>ВСТУПИЛ В ЧАТ: {joined}<br>СООБЩЕНИЙ УЧТЕНО: {count}<br>ПРЕДУПРЕЖДЕНИЙ: {warnings}<br>ДЕЛ: {cases}</div></div></div><div id='verdict' class='verdict'></div>
+</section></div><script src='/assets/inspector.js'></script></body></html>""")

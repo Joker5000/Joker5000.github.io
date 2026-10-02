@@ -9,6 +9,7 @@ from .keyboards import admin_menu, punishment_menu
 from .web import hash_password
 from .personality import social_tick
 from .moderation import process_moderation
+from .command_worker import command_worker
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -143,7 +144,11 @@ async def social_messages(m: Message, bot: Bot):
 async def main():
     await db.init_db()
     bot=Bot(settings.bot_token)
-    await dp.start_polling(bot)
+    worker=asyncio.create_task(command_worker(bot))
+    try:
+        await dp.start_polling(bot)
+    finally:
+        worker.cancel()
 
 if __name__=="__main__":
     asyncio.run(main())

@@ -7,6 +7,7 @@ from .config import settings
 from . import db
 from .keyboards import admin_menu, punishment_menu
 from .web import hash_password
+from .personality import social_tick
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -127,6 +128,10 @@ async def action(q: CallbackQuery, bot: Bot):
         result="✅ Инцидент оставлен без санкций."
     await q.message.edit_text(q.message.text+"\n\n"+result)
     await q.answer("Готово")
+
+@dp.message()
+async def social_messages(m: Message, bot: Bot):
+    await social_tick(bot, m)
 
 async def main():
     await db.init_db()

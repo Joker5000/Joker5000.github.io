@@ -69,6 +69,9 @@ async def analyze_message(m:Message)->dict|None:
         return None
 
 async def process_moderation(bot:Bot,m:Message):
+    text=(m.text or m.caption or "").strip()
+    if m.from_user and not m.from_user.is_bot and text:
+        await db.log_user_message(m.chat.id,m.from_user.id,m.message_id,m.from_user.username,m.from_user.full_name,text)
     result=await analyze_message(m)
     if not result or not result.get("violation"):
         return
@@ -95,6 +98,6 @@ async def process_moderation(bot:Bot,m:Message):
 
     for admin_id in await db.admin_ids():
         try:
-            await bot.send_message(admin_id,card,reply_markup=punishment_menu(m.chat.id,m.from_user.id),parse_mode="HTML")
+            await bot.send_message(admin_id,card,reply_markup=punishment_menu(m.chat.id,m.from_user.id,incident_id),parse_mode="HTML")
         except Exception:
             pass

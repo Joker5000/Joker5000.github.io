@@ -142,17 +142,39 @@ async def settings_page(request:Request):
     uid=await current_admin(request)
     if not uid:return RedirectResponse("/login")
     mode=await db.get_setting("moderation_mode",settings.moderation_mode)
+    social=await db.get_setting("social_enabled","true")
+    reaction=await db.get_setting("reaction_chance","0.08")
+    chat=await db.get_setting("chat_chance","0.015")
+    cooldown=await db.get_setting("chat_cooldown_sec","900")
+    persona=await db.get_setting("persona_prompt","Дружелюбный, спокойный русскоязычный AI-модератор с лёгкой иронией.")
     body=f"""<h1>⚙️ Настройки</h1><div class='panel'><form method='post'>
     <label>Режим модерации</label><select name='mode'><option value='observe' {'selected' if mode=='observe' else ''}>Наблюдение</option>
     <option value='assist' {'selected' if mode=='assist' else ''}>Помощник (рекомендуется)</option>
     <option value='automatic' {'selected' if mode=='automatic' else ''}>Автоматический</option></select>
+    <h2>💬 Характер и общение</h2>
+    <label>Социальный режим</label><select name='social'><option value='true' {'selected' if social=='true' else ''}>Включён</option><option value='false' {'selected' if social=='false' else ''}>Выключен</option></select>
+    <label>Вероятность реакции (0–1)</label><input name='reaction' value='{reaction}'>
+    <label>Вероятность случайной реплики (0–1)</label><input name='chat' value='{chat}'>
+    <label>Минимальный интервал между репликами, секунд</label><input name='cooldown' value='{cooldown}'>
+    <label>Характер персонажа</label><textarea name='persona'>{persona}</textarea>
     <button>Сохранить</button></form></div>"""
     return HTMLResponse(layout("Настройки",body,uid))
 
 @app.post("/settings")
-async def save_settings(request:Request,mode:str=Form(...)):
+async def save_settings(request:Request,mode:str=Form(...),social:str=Form("true"),reaction:str=Form("0.08"),chat:str=Form("0.015"),cooldown:str=Form("900"),persona:str=Form("")):
     uid=await current_admin(request)
     if not uid:return RedirectResponse("/login",303)
     if mode not in {"observe","assist","automatic"}:mode="assist"
     await db.set_setting("moderation_mode",mode)
+    await db.set_setting("social_enabled","true" if social=="true" else "false")
+    try: reaction=str(max(0.0,min(1.0,float(reaction))))
+    except: reaction="0.08"
+    try: chat=str(max(0.0,min(0.25,float(chat))))
+    except: chat="0.015"
+    try: cooldown=str(max(60,int(cooldown)))
+    except: cooldown="900"
+    await db.set_setting("reaction_chance",reaction)
+    await db.set_setting("chat_chance",chat)
+    await db.set_setting("chat_cooldown_sec",cooldown)
+    await db.set_setting("persona_prompt",persona[:2000])
     return RedirectResponse("/settings",303)

@@ -29,6 +29,16 @@ async def lifespan(app:FastAPI):
 app=FastAPI(title="Telegram AI Moderator",lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=settings.web_session_secret,https_only=False,same_site="lax")
 
+@app.get("/browser-port/{name}")
+async def browser_port_files(name:str):
+    if name not in {"index.html","styles.css","app.js"}:
+        return Response(status_code=404)
+    return FileResponse(f"browser-port/{name}")
+
+@app.get("/browser-port")
+async def browser_port_index():
+    return FileResponse("browser-port/index.html")
+
 @app.get("/assets/{name}")
 async def assets(name:str):
     if name not in {"inspector.css","inspector.js","papers_engine.css","papers_engine.js"}: return Response(status_code=404)
